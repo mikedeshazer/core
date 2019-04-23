@@ -111,10 +111,6 @@ go-sum: get_tools
 	@echo "--> Ensure dependencies have not been modified"
 	@go mod verify
 
-go-release:
-	@echo "--> Dry run for go-release"
-	BUILD_TAGS=$(shell echo \"$(build_tags)\") GOSUM=$(shell sha256sum go.sum | cut -d ' ' -f1) goreleaser release --skip-publish --rm-dist --debug
-
 clean:
 	rm -rf ./dist
 	rm -rf ./build
