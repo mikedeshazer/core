@@ -17,7 +17,7 @@ refs:
   filter_only_branches: &filter_only_branches
     filters:
       branches:
-        only: /^(develop|master).*/
+        only: /^(develop|master|feature).*/
       tags:
         only: /v[0-9]+(\.[0-9]+)*(-.*)*/
 
@@ -100,16 +100,55 @@ jobs:
           path: /tmp/logs
 
   release:
+    working_directory: /go/src/core
     docker:
-      - image: circleci/golang:1.11.5
+      - image: docker/golang-cross
     steps:
       - checkout
       - run:
-          name: release
+          name: tools
           command: |
-            export BUILD_TAGS="netgo ledger"
-            export GOSUM=$(sha256sum go.sum | cut -d ' ' -f1)
-            curl -sL https://git.io/goreleaser | bash
+            export GO111MODULE=on
+            export PATH="$GOBIN:$PATH"
+            make get_tools
+            mkdir -p dist
+      - run:
+          name: build-linux
+          command: |
+            CGO_ENABLED=1 GOOS=linux GOARCH=amd64 make build
+            mkdir -p dist/linux
+            mv build/** dist/linux
+      - run:
+          name: build-osx
+          command: |
+            CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CXX=o64-clang++ CC=o64-clang make build
+            mkdir -p dist/darwin
+            mv build/** dist/darwin
+      - run:
+          name: build-windows
+          command: |
+            CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CXX=x86_64-w64-mingw32-g++ CC=x86_64-w64-mingw32-gcc make build
+            mkdir -p dist/windows
+            mv build/terrad dist/windows/terrad.exe
+            mv build/terracli dist/windows/terracli.exe
+            mv build/terrakeyutil dist/windows/terrakeyutil.exe
+      - run:
+          name: make tar
+          command: |
+            export VERSION=`git describe --tags --abbrev=0 | sed 's/^v//'`
+            cp README.md LICENSE dist/linux/
+            cp README.md LICENSE dist/darwin/
+            cp README.md LICENSE dist/windows/
+            $(cd dist/linux && tar cvf - . | gzip -9 - > ../terra_${VERSION}_Linux_x86_64.tar.gz)
+            $(cd dist/darwin && tar cvf - . | gzip -9 - > ../terra_${VERSION}_Darwin_x86_64.tar.gz)
+            $(cd dist/windows && tar cvf - . | gzip -9 - > ../terra_${VERSION}_Windows_x86_64.tar.gz)
+      - run:
+          name: publish
+          command: |
+            go get -u github.com/tcnksm/ghr
+            VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./dist/
+
 
   upload_coverage:
     <<: *linux_defaults
