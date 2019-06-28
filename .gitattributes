@@ -1,2 +1,2 @@
-client/lcd/* linguist-vendored
-docs/* linguist-documentation
+client/lcd/* linguist-vendored=true
+docs/* linguist-documentation=true
