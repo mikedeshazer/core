@@ -36,6 +36,7 @@ var (
 
 type testInput struct {
 	ctx          sdk.Context
+	cdc          *codec.Codec
 	accKeeper    auth.AccountKeeper
 	bankKeeper   bank.Keeper
 	marketKeeper Keeper
@@ -153,5 +154,5 @@ func createTestInput(t *testing.T) testInput {
 		require.NoError(t, err)
 	}
 
-	return testInput{ctx, accKeeper, bankKeeper, marketKeeper, oracleKeeper, mintKeeper}
+	return testInput{ctx, cdc, accKeeper, bankKeeper, marketKeeper, oracleKeeper, mintKeeper}
 }
