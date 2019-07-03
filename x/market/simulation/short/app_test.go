@@ -16,6 +16,7 @@ import (
 
 	"github.com/terra-project/core/testutil/mock"
 	"github.com/terra-project/core/types/assets"
+	"github.com/terra-project/core/x/market"
 	"github.com/terra-project/core/x/oracle"
 )
 
@@ -34,9 +35,20 @@ var (
 	rate          = sdk.NewDec(8712)
 )
 
+type Seqs []uint64
+
+// return copy of Seqs object and increase sequence number
+func (s *Seqs) inc() Seqs {
+	old := append(Seqs{}, (*s)...)
+	for i := range *s {
+		(*s)[i]++
+	}
+	return old
+}
+
 // set up validators by broadcasting createValidator msg
-// only validator3 has double power than others
-func setup(t *testing.T, app *mock.App) {
+// make active market prices
+func setup(t *testing.T, app *mock.App) Seqs {
 	genTokens := sdk.TokensFromTendermintPower(100)
 	bondTokens := sdk.TokensFromTendermintPower(10)
 	genCoin := sdk.NewCoin(assets.MicroLunaDenom, genTokens)
@@ -80,7 +92,7 @@ func setup(t *testing.T, app *mock.App) {
 
 	description3 := staking.NewDescription("validator3", "", "", "")
 	createValidator3Msg := staking.NewMsgCreateValidator(
-		sdk.ValAddress(addr3), priv3.PubKey(), bondCoin.Add(bondCoin), description3, commissionMsg, sdk.OneInt(),
+		sdk.ValAddress(addr3), priv3.PubKey(), bondCoin, description3, commissionMsg, sdk.OneInt(),
 	)
 
 	description4 := staking.NewDescription("validator4", "", "", "")
@@ -95,8 +107,43 @@ func setup(t *testing.T, app *mock.App) {
 
 	mock.CheckBalance(t, app, addr1, sdk.Coins{genCoin.Sub(bondCoin)})
 	mock.CheckBalance(t, app, addr2, sdk.Coins{genCoin.Sub(bondCoin)})
-	mock.CheckBalance(t, app, addr3, sdk.Coins{genCoin.Sub(bondCoin).Sub(bondCoin)})
+	mock.CheckBalance(t, app, addr3, sdk.Coins{genCoin.Sub(bondCoin)})
 	mock.CheckBalance(t, app, addr4, sdk.Coins{genCoin.Sub(bondCoin)})
+
+	return Seqs{1, 1, 1, 1}
+}
+
+func makeActiveDenom(t *testing.T, app *mock.App, seqs Seqs) Seqs {
+	prevoteMsgs := buildPrevote()
+	header := abci.Header{Height: app.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
+		prevoteMsgs,
+		[]uint64{0, 1, 2, 3}, seqs.inc(), true, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
+
+	ctxCheck := app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
+
+	oracleParams := app.OracleKeeper.GetParams(ctxCheck)
+	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+		header = abci.Header{Height: app.LastBlockHeight() + 1}
+		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
+	}
+
+	voteMsgs := buildVote()
+	header = abci.Header{Height: app.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
+		voteMsgs,
+		[]uint64{0, 1, 2, 3}, seqs.inc(), true, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
+
+	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+		header = abci.Header{Height: app.LastBlockHeight() + 1}
+		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
+	}
+
+	ctxCheck = app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
+	_, err := app.OracleKeeper.GetLunaSwapRate(ctxCheck, denom)
+	require.NoError(t, err)
+
+	return seqs
 }
 
 func buildPrevote() []sdk.Msg {
@@ -130,105 +177,72 @@ func buildVote() []sdk.Msg {
 	return []sdk.Msg{voteMsg1, voteMsg2, voteMsg3, voteMsg4}
 }
 
-func TestOraclePrevote(t *testing.T) {
+func TestNormalSwapAndIssuanceChange(t *testing.T) {
 	app := mock.NewApp(t)
-	setup(t, app)
+	seqs := setup(t, app)
+	seqs = makeActiveDenom(t, app, seqs)
 
-	salt := "abcd"
-	hashBytes, err := oracle.VoteHash(salt, rate, denom, sdk.ValAddress(addr1))
-	require.Nil(t, err)
-
-	voteHash := hex.EncodeToString(hashBytes)
-	msg := oracle.NewMsgPricePrevote(voteHash, denom, addr1, sdk.ValAddress(addr1))
-
-	// normal prevote
-	header := abci.Header{Height: app.LastBlockHeight() + 1}
-	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{msg},
-		[]uint64{0}, []uint64{1}, true, true, []crypto.PrivKey{priv1}...)
-
-	msg = oracle.NewMsgPricePrevote("invalid", denom, addr1, sdk.ValAddress(addr1))
-
-	// invalid prevote
-	header = abci.Header{Height: app.LastBlockHeight() + 1}
-	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{msg},
-		[]uint64{0}, []uint64{2}, false, false, []crypto.PrivKey{priv1}...)
-}
-
-func TestOracleVote(t *testing.T) {
-	app := mock.NewApp(t)
-	setup(t, app)
-
-	prevoteMsgs := buildPrevote()
-	header := abci.Header{Height: app.LastBlockHeight() + 1}
-	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		prevoteMsgs,
-		[]uint64{0, 1, 2, 3}, []uint64{1, 1, 1, 1}, true, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
-
-	// not proper reveal period
-	voteMsgs := buildVote()
-	header = abci.Header{Height: app.LastBlockHeight() + 1}
-	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		voteMsgs,
-		[]uint64{0, 1, 2, 3}, []uint64{2, 2, 2, 2}, false, false, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
+	offerAmount := sdk.TokensFromTendermintPower(1)
+	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
+	swapMsg := market.NewMsgSwap(addr1, offerCoin, denom)
 
 	ctxCheck := app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
-	_, err := app.OracleKeeper.GetLunaSwapRate(ctxCheck, denom)
-	require.NotNil(t, err)
+	oldIssuance := app.MintKeeper.GetIssuance(ctxCheck, assets.MicroLunaDenom, sdk.ZeroInt())
 
-	oracleParams := app.OracleKeeper.GetParams(ctxCheck)
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
-		header = abci.Header{Height: app.LastBlockHeight() + 1}
-		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
-	}
-
-	// proper reveal period
-	header = abci.Header{Height: app.LastBlockHeight() + 1}
-	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		voteMsgs,
-		[]uint64{0, 1, 2, 3}, []uint64{3, 3, 3, 3}, true, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
-
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
-		header = abci.Header{Height: app.LastBlockHeight() + 1}
-		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
-	}
-
-	ctxCheck = app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
-	queriedRate, err := app.OracleKeeper.GetLunaSwapRate(ctxCheck, denom)
-	require.Nil(t, err)
-	require.Equal(t, rate, queriedRate)
-}
-
-func TestNotEnoughVotingPower(t *testing.T) {
-	app := mock.NewApp(t)
-	setup(t, app)
-
-	prevoteMsgs := buildPrevote()
 	header := abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		prevoteMsgs[0:2],
-		[]uint64{0, 1}, []uint64{1, 1}, true, true, []crypto.PrivKey{priv1, priv2}...)
-
-	ctxCheck := app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
-	oracleParams := app.OracleKeeper.GetParams(ctxCheck)
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
-		header = abci.Header{Height: app.LastBlockHeight() + 1}
-		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
-	}
-
-	voteMsgs := buildVote()
-	header = abci.Header{Height: app.LastBlockHeight() + 1}
-	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		voteMsgs[0:2],
-		[]uint64{0, 1}, []uint64{2, 2}, true, true, []crypto.PrivKey{priv1, priv2}...)
-
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
-		header = abci.Header{Height: app.LastBlockHeight() + 1}
-		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
-	}
+		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, true, true, []crypto.PrivKey{priv1}...)
+	seqs[0]++
 
 	ctxCheck = app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
-	_, err := app.OracleKeeper.GetLunaSwapRate(ctxCheck, denom)
-	require.NotNil(t, err)
+	curIssuance := app.MintKeeper.GetIssuance(ctxCheck, assets.MicroLunaDenom, sdk.ZeroInt())
+
+	require.Equal(t, oldIssuance.Sub(offerAmount), curIssuance)
+}
+
+func TestUnregisteredDenomSwap(t *testing.T) {
+	app := mock.NewApp(t)
+	seqs := setup(t, app)
+
+	offerAmount := sdk.TokensFromTendermintPower(1)
+	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
+	swapMsg := market.NewMsgSwap(addr1, offerCoin, denom)
+	header := abci.Header{Height: app.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
+		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, false, false, []crypto.PrivKey{priv1}...)
+	seqs[0]++
+
+	seqs = makeActiveDenom(t, app, seqs)
+	header = abci.Header{Height: app.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
+		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, true, true, []crypto.PrivKey{priv1}...)
+	seqs[0]++
+}
+
+func TestRecursiveSwap(t *testing.T) {
+	app := mock.NewApp(t)
+	seqs := setup(t, app)
+	seqs = makeActiveDenom(t, app, seqs)
+
+	offerAmount := sdk.TokensFromTendermintPower(1)
+	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
+	swapMsg := market.NewMsgSwap(addr1, offerCoin, assets.MicroLunaDenom)
+	header := abci.Header{Height: app.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
+		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, false, false, []crypto.PrivKey{priv1}...)
+	seqs[0]++
+}
+
+func TestInsufficientSwap(t *testing.T) {
+	app := mock.NewApp(t)
+	seqs := setup(t, app)
+	seqs = makeActiveDenom(t, app, seqs)
+
+	offerAmount := sdk.TokensFromTendermintPower(100)
+	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
+	swapMsg := market.NewMsgSwap(addr1, offerCoin, denom)
+	header := abci.Header{Height: app.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
+		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, false, false, []crypto.PrivKey{priv1}...)
+	seqs[0]++
 }

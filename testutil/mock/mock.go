@@ -287,6 +287,7 @@ func (app *App) InitChainer(ctx sdk.Context, _ abci.RequestInitChain) abci.Respo
 
 	// load the initial staking information
 	stakingData := staking.DefaultGenesisState()
+	stakingData.Params.BondDenom = assets.MicroLunaDenom
 	stakingData.Pool.NotBondedTokens = app.NotBondedTokens
 	_, err := staking.InitGenesis(ctx, app.StakingKeeper, stakingData)
 	require.Nil(app.t, err)

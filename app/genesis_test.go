@@ -17,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 
 	"github.com/terra-project/core/types/assets"
+	"github.com/terra-project/core/types/util"
 )
 
 var (
@@ -32,6 +33,19 @@ var (
 
 	defaultBondDenom = assets.MicroLunaDenom
 )
+
+func init() {
+	config := sdk.GetConfig()
+
+	if config.GetBech32AccountAddrPrefix() != util.Bech32PrefixAccAddr {
+		config.SetCoinType(330)
+		config.SetFullFundraiserPath("44'/330'/0'/0/0")
+		config.SetBech32PrefixForAccount(util.Bech32PrefixAccAddr, util.Bech32PrefixAccPub)
+		config.SetBech32PrefixForValidator(util.Bech32PrefixValAddr, util.Bech32PrefixValPub)
+		config.SetBech32PrefixForConsensusNode(util.Bech32PrefixConsAddr, util.Bech32PrefixConsPub)
+		config.Seal()
+	}
+}
 
 func makeGenesisState(t *testing.T, genTxs []auth.StdTx) GenesisState {
 	// start with the default staking genesis state
@@ -74,16 +88,27 @@ func TestToAccount(t *testing.T) {
 	require.Equal(t, vacc, acc.(*auth.ContinuousVestingAccount))
 }
 
-func TestGaiaAppGenTx(t *testing.T) {
+func TestTerraAppGenTx(t *testing.T) {
 	cdc := MakeCodec()
 	_ = cdc
+
+	var err error
+	var genDoc tmtypes.GenesisDoc
+	appState := makeGenesisState(t, []auth.StdTx{})
+	genDoc.AppState, err = cdc.MarshalJSON(appState)
+	require.NoError(t, err)
+
+	gentxStr := `{"type":"auth/StdTx","value":{"msg":[{"type":"staking/MsgCreateValidator","value":{"description":{"moniker":"genki","identity":"","website":"","details":""},"commission":{"rate":"0.100000000000000000","max_rate":"0.200000000000000000","max_change_rate":"0.010000000000000000"},"min_self_delegation":"1","delegator_address":"terra1wg2mlrxdmnnkkykgqg4znky86nyrtc45q336yv","validator_address":"terravaloper1wg2mlrxdmnnkkykgqg4znky86nyrtc45q7a85l","pubkey":"terravalconspub1zcjduepqp4hglzr4m4u9lnxxp7f4tv9r0gt86jpcfk84m8fzhke4r3u7ctzsgxgpj5","value":{"denom":"uluna","amount":"100000000000000"}}}],"fee":{"amount":null,"gas":"200000"},"signatures":[{"pub_key":{"type":"tendermint/PubKeySecp256k1","value":"Ar+guke5UuM2XEZ9/ouPhAQbYs+f7y6jQCtGlI2lj1ZH"},"signature":"LsErmJJqPsZVdxnCzwrG5b1jYZlF93MjmO1EDt5htSM7kWeKmbfy9sTAfvGq5ilmrIu8YoBj921yffTsPNWYvw=="}],"memo":"81e1c1e3211ea48137f6025bede8b45c6043423b@192.168.219.104:26656"}}`
+
+	_, err = TerraAppGenState(cdc, genDoc, []json.RawMessage{[]byte(gentxStr)})
+	require.NoError(t, err)
 
 	//TODO test that key overwrite flags work / no overwrites if set off
 	//TODO test validator created has provided pubkey
 	//TODO test the account created has the correct pubkey
 }
 
-func TestGaiaAppGenState(t *testing.T) {
+func TestTerraAppGenState(t *testing.T) {
 	cdc := MakeCodec()
 	_ = cdc
 	var genDoc tmtypes.GenesisDoc
@@ -93,7 +118,7 @@ func TestGaiaAppGenState(t *testing.T) {
 	require.Error(t, err)
 
 	appState := makeGenesisState(t, []auth.StdTx{})
-	genDoc.AppState, err = json.Marshal(appState)
+	genDoc.AppState, err = cdc.MarshalJSON(appState)
 	require.NoError(t, err)
 
 	// test validation error
@@ -113,7 +138,7 @@ func makeMsg(name string, pk crypto.PubKey) auth.StdTx {
 	return auth.NewStdTx([]sdk.Msg{msg}, auth.StdFee{}, nil, "")
 }
 
-func TestGaiaGenesisValidation(t *testing.T) {
+func TestTerraGenesisValidation(t *testing.T) {
 	genTxs := []auth.StdTx{makeMsg("test-0", pk1), makeMsg("test-1", pk2)}
 	dupGenTxs := []auth.StdTx{makeMsg("test-0", pk1), makeMsg("test-1", pk1)}
 
