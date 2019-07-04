@@ -154,7 +154,7 @@ func (k Keeper) NewProgramID(ctx sdk.Context) (programID uint64) {
 		k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &programID)
 		programID++
 	} else {
-		programID = 1
+		programID = InitialProgramID
 	}
 
 	bz := k.cdc.MustMarshalBinaryLengthPrefixed(programID)

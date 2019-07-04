@@ -33,6 +33,7 @@ var (
 	commissionMsg = staking.NewCommissionMsg(sdk.ZeroDec(), sdk.ZeroDec(), sdk.ZeroDec())
 	denom         = "foocoin"
 	rate          = sdk.NewDec(8712)
+	salt          = "abcd"
 )
 
 type Seqs []uint64
@@ -147,7 +148,6 @@ func makeActiveDenom(t *testing.T, app *mock.App, seqs Seqs) Seqs {
 }
 
 func buildPrevote() []sdk.Msg {
-	salt := "abcd"
 	hashBytes1, _ := oracle.VoteHash(salt, rate, denom, sdk.ValAddress(addr1))
 	hashBytes2, _ := oracle.VoteHash(salt, rate, denom, sdk.ValAddress(addr2))
 	hashBytes3, _ := oracle.VoteHash(salt, rate, denom, sdk.ValAddress(addr3))
@@ -167,7 +167,6 @@ func buildPrevote() []sdk.Msg {
 }
 
 func buildVote() []sdk.Msg {
-	salt := "abcd"
 
 	voteMsg1 := oracle.NewMsgPriceVote(rate, salt, denom, addr1, sdk.ValAddress(addr1))
 	voteMsg2 := oracle.NewMsgPriceVote(rate, salt, denom, addr2, sdk.ValAddress(addr2))

@@ -187,8 +187,12 @@ func TestKeeperSeigniorage(t *testing.T) {
 
 	input.mintKeeper.Mint(input.ctx.WithBlockHeight(util.BlocksPerEpoch-1), addrs[0], sdk.NewCoin(assets.MicroLunaDenom, sdk.NewInt(100)))
 	seigniorage := input.mintKeeper.PeekEpochSeigniorage(input.ctx.WithBlockHeight(util.BlocksPerEpoch), sdk.NewInt(0))
-
 	require.Equal(t, sdk.NewInt(100), seigniorage)
+
+	// For decreased luna supply, seigniorage should be 0
+	input.mintKeeper.Burn(input.ctx.WithBlockHeight(util.BlocksPerEpoch*2-1), addrs[0], sdk.NewCoin(assets.MicroLunaDenom, sdk.NewInt(150)))
+	seigniorage = input.mintKeeper.PeekEpochSeigniorage(input.ctx.WithBlockHeight(util.BlocksPerEpoch*2), sdk.NewInt(1))
+	require.Equal(t, sdk.NewInt(0), seigniorage)
 }
 
 func TestKeeperMintStress(t *testing.T) {

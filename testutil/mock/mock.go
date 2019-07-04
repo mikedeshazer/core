@@ -298,7 +298,10 @@ func (app *App) InitChainer(ctx sdk.Context, _ abci.RequestInitChain) abci.Respo
 	crisis.InitGenesis(ctx, app.CrisisKeeper, crisis.DefaultGenesisState())
 	treasury.InitGenesis(ctx, app.TreasuryKeeper, treasury.DefaultGenesisState())
 	market.InitGenesis(ctx, app.MarketKeeper, market.DefaultGenesisState())
-	budget.InitGenesis(ctx, app.BudgetKeeper, budget.DefaultGenesisState())
+	// to prevent too long voting period
+	budgetGenesisStatue := budget.DefaultGenesisState()
+	budgetGenesisStatue.Params.VotePeriod = 10
+	budget.InitGenesis(ctx, app.BudgetKeeper, budgetGenesisStatue)
 	oracle.InitGenesis(ctx, app.OracleKeeper, oracle.DefaultGenesisState())
 
 	// GetIssuance needs to be called once to read account balances to the store

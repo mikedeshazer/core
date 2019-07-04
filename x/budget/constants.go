@@ -15,4 +15,7 @@ const (
 
 	// DefaultParamspace is for the paramspace notation
 	DefaultParamspace = ModuleName
+
+	// InitialProgramID is first program id
+	InitialProgramID = uint64(1)
 )
