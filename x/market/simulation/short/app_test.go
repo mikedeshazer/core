@@ -124,7 +124,7 @@ func makeActiveDenom(t *testing.T, app *mock.App, seqs Seqs) Seqs {
 	ctxCheck := app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
 
 	oracleParams := app.OracleKeeper.GetParams(ctxCheck)
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+	for app.LastBlockHeight()%oracleParams.VotePeriod != oracleParams.VotePeriod-1 {
 		header = abci.Header{Height: app.LastBlockHeight() + 1}
 		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
 	}
@@ -133,9 +133,9 @@ func makeActiveDenom(t *testing.T, app *mock.App, seqs Seqs) Seqs {
 	header = abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
 		voteMsgs,
-		[]uint64{0, 1, 2, 3}, seqs.inc(), true, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
+		[]uint64{0, 1, 2, 3}, seqs.inc(), false, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
 
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+	for ok := true; ok; ok = (app.LastBlockHeight()%oracleParams.VotePeriod != 0) {
 		header = abci.Header{Height: app.LastBlockHeight() + 1}
 		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
 	}
@@ -188,10 +188,10 @@ func TestNormalSwapAndIssuanceChange(t *testing.T) {
 	ctxCheck := app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
 	oldIssuance := app.MintKeeper.GetIssuance(ctxCheck, assets.MicroLunaDenom, sdk.ZeroInt())
 
+	sseqs := seqs[:1]
 	header := abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, true, true, []crypto.PrivKey{priv1}...)
-	seqs[0]++
+		[]sdk.Msg{swapMsg}, []uint64{0}, sseqs.inc(), true, true, []crypto.PrivKey{priv1}...)
 
 	ctxCheck = app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
 	curIssuance := app.MintKeeper.GetIssuance(ctxCheck, assets.MicroLunaDenom, sdk.ZeroInt())
@@ -202,46 +202,45 @@ func TestNormalSwapAndIssuanceChange(t *testing.T) {
 func TestUnregisteredDenomSwap(t *testing.T) {
 	app := mock.NewApp(t)
 	seqs := setup(t, app)
+	sseqs := seqs[:1]
 
 	offerAmount := sdk.TokensFromTendermintPower(1)
 	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
 	swapMsg := market.NewMsgSwap(addr1, offerCoin, denom)
 	header := abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, false, false, []crypto.PrivKey{priv1}...)
-	seqs[0]++
+		[]sdk.Msg{swapMsg}, []uint64{0}, sseqs.inc(), false, false, []crypto.PrivKey{priv1}...)
 
 	seqs = makeActiveDenom(t, app, seqs)
 	header = abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, true, true, []crypto.PrivKey{priv1}...)
-	seqs[0]++
+		[]sdk.Msg{swapMsg}, []uint64{0}, sseqs.inc(), true, true, []crypto.PrivKey{priv1}...)
 }
 
 func TestRecursiveSwap(t *testing.T) {
 	app := mock.NewApp(t)
 	seqs := setup(t, app)
 	seqs = makeActiveDenom(t, app, seqs)
+	sseqs := seqs[:1]
 
 	offerAmount := sdk.TokensFromTendermintPower(1)
 	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
 	swapMsg := market.NewMsgSwap(addr1, offerCoin, assets.MicroLunaDenom)
 	header := abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, false, false, []crypto.PrivKey{priv1}...)
-	seqs[0]++
+		[]sdk.Msg{swapMsg}, []uint64{0}, sseqs.inc(), false, false, []crypto.PrivKey{priv1}...)
 }
 
 func TestInsufficientSwap(t *testing.T) {
 	app := mock.NewApp(t)
 	seqs := setup(t, app)
 	seqs = makeActiveDenom(t, app, seqs)
+	sseqs := seqs[:1]
 
 	offerAmount := sdk.TokensFromTendermintPower(100)
 	offerCoin := sdk.NewCoin(assets.MicroLunaDenom, offerAmount)
 	swapMsg := market.NewMsgSwap(addr1, offerCoin, denom)
 	header := abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
-		[]sdk.Msg{swapMsg}, []uint64{0}, []uint64{seqs[0]}, false, false, []crypto.PrivKey{priv1}...)
-	seqs[0]++
+		[]sdk.Msg{swapMsg}, []uint64{0}, sseqs.inc(), false, false, []crypto.PrivKey{priv1}...)
 }

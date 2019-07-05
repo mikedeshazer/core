@@ -178,7 +178,7 @@ func TestOracleVote(t *testing.T) {
 	require.NotNil(t, err)
 
 	oracleParams := app.OracleKeeper.GetParams(ctxCheck)
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+	for app.LastBlockHeight()%oracleParams.VotePeriod != oracleParams.VotePeriod-1 {
 		header = abci.Header{Height: app.LastBlockHeight() + 1}
 		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
 	}
@@ -187,9 +187,9 @@ func TestOracleVote(t *testing.T) {
 	header = abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
 		voteMsgs,
-		[]uint64{0, 1, 2, 3}, []uint64{3, 3, 3, 3}, true, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
+		[]uint64{0, 1, 2, 3}, []uint64{3, 3, 3, 3}, false, true, []crypto.PrivKey{priv1, priv2, priv3, priv4}...)
 
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+	for ok := true; ok; ok = (app.LastBlockHeight()%oracleParams.VotePeriod != 0) {
 		header = abci.Header{Height: app.LastBlockHeight() + 1}
 		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
 	}
@@ -212,7 +212,7 @@ func TestNotEnoughVotingPower(t *testing.T) {
 
 	ctxCheck := app.BaseApp.NewContext(true, abci.Header{Height: app.LastBlockHeight()})
 	oracleParams := app.OracleKeeper.GetParams(ctxCheck)
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+	for app.LastBlockHeight()%oracleParams.VotePeriod != oracleParams.VotePeriod-1 {
 		header = abci.Header{Height: app.LastBlockHeight() + 1}
 		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
 	}
@@ -221,9 +221,9 @@ func TestNotEnoughVotingPower(t *testing.T) {
 	header = abci.Header{Height: app.LastBlockHeight() + 1}
 	mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header,
 		voteMsgs[0:2],
-		[]uint64{0, 1}, []uint64{2, 2}, true, true, []crypto.PrivKey{priv1, priv2}...)
+		[]uint64{0, 1}, []uint64{2, 2}, false, true, []crypto.PrivKey{priv1, priv2}...)
 
-	for i := 0; i < int(oracleParams.VotePeriod); i++ {
+	for ok := true; ok; ok = (app.LastBlockHeight()%oracleParams.VotePeriod != 0) {
 		header = abci.Header{Height: app.LastBlockHeight() + 1}
 		mock.SignCheckDeliver(t, app.Cdc, app.BaseApp, header, []sdk.Msg{}, []uint64{}, []uint64{}, true, true, []crypto.PrivKey{}...)
 	}

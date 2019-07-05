@@ -6,14 +6,14 @@ import (
 
 // nolint
 const (
-	BlocksPerMinute = int64(10)
+	BlocksPerMinute = int64(3)
 	BlocksPerHour   = BlocksPerMinute * 60
 	BlocksPerDay    = BlocksPerHour * 24
 	BlocksPerWeek   = BlocksPerDay * 7
 	BlocksPerMonth  = BlocksPerDay * 30
 	BlocksPerYear   = BlocksPerDay * 365
 
-	BlocksPerEpoch = BlocksPerWeek
+	BlocksPerEpoch = BlocksPerDay
 )
 
 // GetEpoch returns the current epoch, starting from 0

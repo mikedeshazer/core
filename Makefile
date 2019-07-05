@@ -116,13 +116,13 @@ go-release:
 
 clean:
 	rm -rf ./dist
-	rm -rf ./build
+	rm -rf ./build 
 
 distclean: clean
 	rm -rf vendor/
 
 ########################################
-### Testing
+### Testingj
 
 test: test_unit
 
@@ -132,7 +132,7 @@ test_unit:
 test_race:
 	@VERSION=$(VERSION) go test -race $(PACKAGES_NOSIMULATION)
 
-format:
+format:t
 	find . -name '*.go' -type f -not -path "./vendor*" -not -path "*.git*" -not -path "./client/lcd/statik/statik.go" | xargs gofmt -w -s
 	find . -name '*.go' -type f -not -path "./vendor*" -not -path "*.git*" -not -path "./client/lcd/statik/statik.go" | xargs misspell -w
 	find . -name '*.go' -type f -not -path "./vendor*" -not -path "*.git*" -not -path "./client/lcd/statik/statik.go" | xargs goimports -w -local github.com/terra-project/core

@@ -17,3 +17,5 @@ ignore:
   - "docs"
   - "*.md"
   - "*.rst"
+  - "client/lcd/statik"
+  - "client/lcd/swagger-ui"

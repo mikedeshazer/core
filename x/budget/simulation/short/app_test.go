@@ -29,8 +29,6 @@ var (
 	addr4 = sdk.AccAddress(priv4.PubKey().Address())
 
 	commissionMsg = staking.NewCommissionMsg(sdk.ZeroDec(), sdk.ZeroDec(), sdk.ZeroDec())
-	denom         = "foocoin"
-	rate          = sdk.NewDec(8712)
 
 	programID = budget.InitialProgramID
 )
