@@ -59,7 +59,7 @@ BUILD_FLAGS := -tags "$(build_tags)" -ldflags '$(ldflags)'
 ########################################
 ### All
 
-all: clean go-mod-cache install lint test
+all: install test
 
 ########################################
 ### CI
@@ -128,7 +128,7 @@ distclean: clean
 test: test_unit
 
 test_unit:
-	@VERSION=$(VERSION) go test $(PACKAGES_NOSIMULATION)
+	@VERSION=$(VERSION) go test -mod=readonly $(PACKAGES_NOSIMULATION) -tags='ledger test_ledger_mock'
 
 test_race:
 	@VERSION=$(VERSION) go test -race $(PACKAGES_NOSIMULATION)

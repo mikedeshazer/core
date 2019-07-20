@@ -36,8 +36,8 @@ func main() {
 	cdc := app.MakeCodec()
 
 	config := sdk.GetConfig()
-	config.SetCoinType(330)
-	config.SetFullFundraiserPath("44'/330'/0'/0/0")
+	config.SetCoinType(util.CoinType)
+	config.SetFullFundraiserPath(util.FullFundraiserPath)
 	config.SetBech32PrefixForAccount(util.Bech32PrefixAccAddr, util.Bech32PrefixAccPub)
 	config.SetBech32PrefixForValidator(util.Bech32PrefixValAddr, util.Bech32PrefixValPub)
 	config.SetBech32PrefixForConsensusNode(util.Bech32PrefixConsAddr, util.Bech32PrefixConsPub)
@@ -46,8 +46,8 @@ func main() {
 	ctx := server.NewDefaultContext()
 	cobra.EnableCommandSorting = false
 	rootCmd := &cobra.Command{
-		Use:               "terrad",
-		Short:             "Terra Daemon (server)",
+		Use:               "zoned",
+		Short:             "Cosmos Zone Daemon (server)",
 		PersistentPreRunE: terraserver.PersistentPreRunEFn(ctx),
 	}
 	rootCmd.AddCommand(terraInit.InitCmd(ctx, cdc))
