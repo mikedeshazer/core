@@ -59,7 +59,7 @@ BUILD_FLAGS := -tags "$(build_tags)" -ldflags '$(ldflags)'
 ########################################
 ### All
 
-all: install test
+all: clean go-mod-cache install lint test
 
 ########################################
 ### CI
@@ -71,12 +71,12 @@ ci: get_tools install lint test
 
 build: update_terra_lite_docs
 ifeq ($(OS),Windows_NT)
-	go build $(BUILD_FLAGS) -o build/terrad.exe ./cmd/terrad
-	go build $(BUILD_FLAGS) -o build/terracli.exe ./cmd/terracli
+	go build $(BUILD_FLAGS) -o build/terrad.exe ./cmd/zoned
+	go build $(BUILD_FLAGS) -o build/terracli.exe ./cmd/zonecli
 	go build $(BUILD_FLAGS) -o build/terrakeyutil.exe ./cmd/terrakeyutil
 else
-	go build $(BUILD_FLAGS) -o build/terrad ./cmd/terrad
-	go build $(BUILD_FLAGS) -o build/terracli ./cmd/terracli
+	go build $(BUILD_FLAGS) -o build/terrad ./cmd/zoned
+	go build $(BUILD_FLAGS) -o build/terracli ./cmd/zonecli
 	go build $(BUILD_FLAGS) -o build/terrakeyutil ./cmd/terrakeyutil
 endif
 
@@ -87,8 +87,8 @@ update_terra_lite_docs:
 	@statik -src=client/lcd/swagger-ui -dest=client/lcd -f
 
 install: update_terra_lite_docs
-	go install $(BUILD_FLAGS) ./cmd/terrad
-	go install $(BUILD_FLAGS) ./cmd/terracli
+	go install $(BUILD_FLAGS) ./cmd/zoned
+	go install $(BUILD_FLAGS) ./cmd/zonecli
 	go install $(BUILD_FLAGS) ./cmd/terrakeyutil
 
 
