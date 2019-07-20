@@ -99,8 +99,8 @@ func main() {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "terracli",
-		Short: "Command line interface for interacting with terrad",
+		Use:   "zonecli",
+		Short: "Command line interface for interacting with zoned",
 	}
 
 	// Add --chain-id to persistent flags and mark it required

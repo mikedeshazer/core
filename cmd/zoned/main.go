@@ -46,8 +46,8 @@ func main() {
 	ctx := server.NewDefaultContext()
 	cobra.EnableCommandSorting = false
 	rootCmd := &cobra.Command{
-		Use:               "terrad",
-		Short:             "Terra Daemon (server)",
+		Use:               "zoned",
+		Short:             "Cosmos Zone Daemon (server)",
 		PersistentPreRunE: terraserver.PersistentPreRunEFn(ctx),
 	}
 	rootCmd.AddCommand(terraInit.InitCmd(ctx, cdc))
